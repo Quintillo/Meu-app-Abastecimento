@@ -1,0 +1,10 @@
+{
+  "name": "AbastecePMW",
+  "description": "Plataforma inteligente de monitoramento e atualização colaborativa de preços de combustíveis com mapa interativo pin-bouncing, comparador bento de etanol vs gasolina, e clube de benefícios para motoristas.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
