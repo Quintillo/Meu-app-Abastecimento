@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { GasStation, FuelType, getSanitizedLogoUrl, getBrandLogoFallback } from '../types';
 import { MAP_IMAGE_URL } from '../data';
-import { Check, Info, Navigation, Star, ChevronDown, RefreshCw, MessageSquare } from 'lucide-react';
+import { 
+  Check, Info, Navigation, Star, ChevronDown, RefreshCw, MessageSquare,
+  Locate, Compass, LocateOff
+} from 'lucide-react';
 
 interface MapTabProps {
   stations: GasStation[];
@@ -10,6 +13,8 @@ interface MapTabProps {
   selectedFuel: FuelType;
   setSelectedFuel: (fuel: FuelType) => void;
   onOpenDetails: (station: GasStation) => void;
+  userCoords: { latitude: number; longitude: number } | null;
+  setUserCoords: (coords: { latitude: number; longitude: number } | null) => void;
 }
 
 export default function MapTab({
@@ -18,9 +23,56 @@ export default function MapTab({
   onSelectStation,
   selectedFuel,
   setSelectedFuel,
-  onOpenDetails
+  onOpenDetails,
+  userCoords,
+  setUserCoords
 }: MapTabProps) {
   const [activeChipFilter, setActiveChipFilter] = useState<'all' | 'close' | 'verified'>('all');
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [simulationActive, setSimulationActive] = useState(false);
+
+  const requestRealGPS = () => {
+    setIsLocating(true);
+    setGpsError(null);
+    if (!navigator.geolocation) {
+      setGpsError("Seu navegador não suporta geolocalização.");
+      setIsLocating(false);
+      activateSimulation();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserCoords({ latitude, longitude });
+        setSimulationActive(false);
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error("GPS Error", error);
+        setGpsError("Permissão de GPS negada. Ativando localização simulada em Palmas!");
+        setIsLocating(false);
+        activateSimulation();
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
+  const activateSimulation = () => {
+    // Standard central location in Palmas, Tocantins
+    setUserCoords({
+      latitude: -10.2185,
+      longitude: -48.3308
+    });
+    setSimulationActive(true);
+  };
+
+  const clearLocation = () => {
+    setUserCoords(null);
+    setSimulationActive(false);
+    setGpsError(null);
+  };
 
   // Multi fuel label helper
   const getFuelPortuguese = (type: FuelType): string => {
@@ -67,6 +119,16 @@ export default function MapTab({
     return 10 + fraction * 80; // project inside 10% to 90%
   };
 
+  const getUserPercentageTop = (lat: number) => {
+    let pct = getPercentageTop(lat);
+    return Math.max(5, Math.min(95, pct));
+  };
+
+  const getUserPercentageLeft = (lng: number) => {
+    let pct = getPercentageLeft(lng);
+    return Math.max(5, Math.min(95, pct));
+  };
+
   return (
     <div className="absolute inset-0 top-16 bottom-16 overflow-hidden flex flex-col font-sans">
       
@@ -103,6 +165,25 @@ export default function MapTab({
         </div>
       </div>
 
+      {/* Toast message indicating status */}
+      {userCoords && (
+        <div className="absolute top-16 left-4 right-4 z-30 pointer-events-none flex justify-center">
+          <div className="bg-slate-900/90 backdrop-blur-md text-white border border-slate-700/40 px-3.5 py-2 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-2 shadow-xl pointer-events-auto animate-in fade-in slide-in-from-top-3 duration-250">
+            {simulationActive ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                <span>Localização Simulada (Palmas, TO) Ativa • Distâncias recalculadas!</span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span>Localização GPS Sincronizada • Distâncias calculadas em tempo real!</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Map Box */}
       <div className="relative w-full h-full bg-slate-200 overflow-hidden">
         
@@ -113,6 +194,75 @@ export default function MapTab({
           src={MAP_IMAGE_URL}
           referrerPolicy="no-referrer"
         />
+
+        {/* Floating Geo Tracker Controller */}
+        <div className="absolute top-16 right-4 z-35 flex flex-col gap-2 pointer-events-auto">
+          <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-xl border border-gray-200/80 flex flex-col items-center gap-1.5 animate-in slide-in-from-right duration-250">
+            <button
+              type="button"
+              onClick={requestRealGPS}
+              disabled={isLocating}
+              title="Obter GPS Real"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
+                userCoords && !simulationActive
+                  ? 'bg-blue-800 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+              }`}
+            >
+              {isLocating ? (
+                <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+              ) : (
+                <Compass className={`w-4 items-center h-4 shrink-0 ${userCoords && !simulationActive ? 'animate-pulse' : ''}`} />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={activateSimulation}
+              title="Simular Localização (Palmas)"
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
+                simulationActive
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+              }`}
+            >
+              <Locate className="w-4 h-4 shrink-0" />
+            </button>
+
+            {userCoords && (
+              <button
+                type="button"
+                onClick={clearLocation}
+                title="Limpar Filtro de Distâncias"
+                className="w-9 h-9 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 flex items-center justify-center hover:bg-rose-100 transition-all cursor-pointer active:scale-95 shrink-0"
+              >
+                <Locate className="w-4 h-4 rotate-45 shrink-0" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* User Pulsing Location Marker Pin */}
+        {userCoords && (
+          <div
+            style={{
+              top: `${getUserPercentageTop(userCoords.latitude)}%`,
+              left: `${getUserPercentageLeft(userCoords.longitude)}%`
+            }}
+            className="absolute z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          >
+            <div className="relative flex h-8 w-8 items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-60"></span>
+              <span className="relative inline-flex rounded-full h-4.5 w-4.5 bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white text-[10px] font-extrabold font-sans">
+                ★
+              </span>
+            </div>
+            {/* Tiny "Você" tag */}
+            <div className="bg-blue-900/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-blue-400 absolute left-1/2 -translate-x-1/2 top-7 whitespace-nowrap">
+              VOCÊ
+            </div>
+          </div>
+        )}
 
         {/* Map Interactive Pins Overlay */}
         {mapStationsList.map((station) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DEFAULT_STATIONS, DEFAULT_USER, DEFAULT_HISTORY } from './data';
 import { GasStation, FuelType, HistoryItem, UserProfile } from './types';
 import NearbyList from './components/NearbyList';
@@ -13,14 +13,45 @@ import {
   HelpCircle, ChevronRight, Bookmark, ArrowLeft 
 } from 'lucide-react';
 
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth ratio in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 export default function App() {
   const [stations, setStations] = useState<GasStation[]>(DEFAULT_STATIONS);
   const [history, setHistory] = useState<HistoryItem[]>(DEFAULT_HISTORY);
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   
   const [activeTab, setActiveTab] = useState<'list' | 'map' | 'history' | 'profile' | 'detail'>('list');
   const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
   const [selectedFuel, setSelectedFuel] = useState<FuelType>('Gasoline');
+
+  // Compute stations with dynamic distances from user location if active
+  const stationsWithDynamicDistance = useMemo(() => {
+    if (!userCoords) return stations;
+    return stations.map(station => {
+      const dist = calculateDistanceKm(userCoords.latitude, userCoords.longitude, station.latitude, station.longitude);
+      return {
+        ...station,
+        distance: parseFloat(dist.toFixed(1))
+      };
+    });
+  }, [stations, userCoords]);
+
+  const selectedStationWithDynamicDistance = useMemo(() => {
+    if (!selectedStation) return null;
+    return stationsWithDynamicDistance.find(s => s.id === selectedStation.id) || selectedStation;
+  }, [selectedStation, stationsWithDynamicDistance]);
+
   
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [stationToUpdate, setStationToUpdate] = useState<GasStation | null>(null);
@@ -219,7 +250,7 @@ export default function App() {
         {/* Tab switcher renderer */}
         {activeTab === 'list' && (
           <NearbyList 
-            stations={stations}
+            stations={stationsWithDynamicDistance}
             onSelectStation={handleSelectStation}
             selectedFuel={selectedFuel}
             setSelectedFuel={setSelectedFuel}
@@ -232,8 +263,8 @@ export default function App() {
 
         {activeTab === 'map' && (
           <MapTab 
-            stations={stations}
-            selectedStation={selectedStation}
+            stations={stationsWithDynamicDistance}
+            selectedStation={selectedStationWithDynamicDistance}
             onSelectStation={(s) => setSelectedStation(s)}
             selectedFuel={selectedFuel}
             setSelectedFuel={setSelectedFuel}
@@ -241,6 +272,8 @@ export default function App() {
               setSelectedStation(s);
               setActiveTab('detail');
             }}
+            userCoords={userCoords}
+            setUserCoords={setUserCoords}
           />
         )}
 
@@ -254,18 +287,18 @@ export default function App() {
         {activeTab === 'profile' && (
           <ProfileTab 
             user={user}
-            stations={stations}
+            stations={stationsWithDynamicDistance}
             onSelectStation={handleSelectStation}
             onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
           />
         )}
 
-        {activeTab === 'detail' && selectedStation && (
+        {activeTab === 'detail' && selectedStationWithDynamicDistance && (
           <StationDetails 
-            station={selectedStation}
+            station={selectedStationWithDynamicDistance}
             selectedFuel={selectedFuel}
             onBack={handleBackToMain}
-            onOpenPriceUpdate={() => handleOpenPriceUpdate(selectedStation)}
+            onOpenPriceUpdate={() => handleOpenPriceUpdate(selectedStationWithDynamicDistance)}
             onOpenNavigation={(s) => setNavigationStation(s)}
             onAddComment={handleAddComment}
             isDeveloper={user.email === 'quintilloalef@gmail.com'}
