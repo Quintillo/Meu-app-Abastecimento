@@ -301,7 +301,7 @@ export default function MapTab({
   };
 
   return (
-    <div className="absolute inset-0 top-16 bottom-16 overflow-hidden flex flex-col font-sans">
+    <div className="absolute inset-0 top-16 md:top-16 bottom-16 md:bottom-0 overflow-hidden flex flex-col font-sans">
       
       {/* Search & Filter Chips (Floating Overlay) */}
       <div className="absolute top-4 left-0 w-full px-4 z-30 flex flex-col gap-2 pointer-events-none">

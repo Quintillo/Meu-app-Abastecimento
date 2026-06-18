@@ -329,89 +329,188 @@ export default function App() {
   };
 
   return (
-    <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto min-h-screen bg-[#f8f9ff] text-[#121c2a] flex flex-col relative select-none shadow-xl border-x border-gray-150">
+    <div className="w-full min-h-screen bg-[#f8f9ff] text-[#121c2a] flex flex-col md:flex-row relative select-none">
       
-      {/* Dynamic Header (Sticky Top Layout) */}
-      {activeTab !== 'detail' && (
-        <header className="sticky top-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-white border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <Fuel className="w-6 h-6 text-blue-800" />
-            <h1 className="text-xl font-extrabold tracking-tight text-blue-800 font-sans">
-              AbastecePMW
-            </h1>
+      {/* Sleek Sidebar Navigation for Desktop/Tablets */}
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 shrink-0 sticky top-0 h-screen p-5 justify-between z-40">
+        <div className="flex flex-col gap-8">
+          {/* Logo Brand */}
+          <div className="flex items-center gap-2.5 px-2">
+            <Fuel className="w-7 h-7 text-blue-800" />
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight text-blue-800 font-sans leading-none">
+                AbastecePMW
+              </h1>
+              <p className="text-[9px] text-gray-400 font-mono tracking-wider font-bold uppercase mt-1">Palmas • TO</p>
+            </div>
           </div>
-          <button 
-            onClick={() => setActiveTab('list')}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            title="Buscar"
-          >
-            <Search className="w-5 h-5 text-gray-500" />
-          </button>
-        </header>
-      )}
 
-      {/* Main Orchestrator Canvas Section */}
-      <main className={`flex-1 ${activeTab !== 'detail' ? 'px-4' : 'px-4 pt-4'}`}>
+          {/* Navigation Links */}
+          <nav className="flex flex-col gap-1.5">
+            {[
+              { id: 'list', label: 'Próximos Postos', icon: Fuel },
+              { id: 'map', label: 'Mapa Interativo', icon: Map },
+              { id: 'history', label: 'Histórico', icon: History },
+              { id: 'profile', label: 'Meu Perfil', icon: User },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id || (tab.id === 'list' && activeTab === 'detail');
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    if (tab.id !== 'list') setSelectedStation(null);
+                  }}
+                  className={`w-full flex items-center gap-3.5 px-4 h-12 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                    isActive 
+                      ? 'bg-blue-50 text-blue-800 font-extrabold border-l-4 border-blue-800 pl-3.5 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-blue-800' : 'text-gray-400'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Small Active User Badge Footer inside Sidebar */}
+        <div 
+          onClick={() => {
+            setActiveTab('profile');
+            setSelectedStation(null);
+          }}
+          className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 border border-gray-200/60 rounded-xl cursor-pointer transition-colors"
+        >
+          <img 
+            alt={user.name} 
+            src={user.avatarUrl} 
+            className="w-9 h-9 rounded-full object-cover border border-blue-600 shrink-0"
+            referrerPolicy="no-referrer"
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-gray-901 truncate font-sans">{user.name}</p>
+            <p className="text-[9px] font-mono text-blue-800 font-bold leading-none mt-1">{user.points} PTS</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Pane Wrapper */}
+      <div className="flex-1 flex flex-col min-h-screen relative pb-16 md:pb-0 h-screen overflow-y-auto">
         
-        {/* Tab switcher renderer */}
-        {activeTab === 'list' && (
-          <NearbyList 
-            stations={stationsWithDynamicDistance}
-            onSelectStation={handleSelectStation}
-            selectedFuel={selectedFuel}
-            setSelectedFuel={setSelectedFuel}
-            onOpenUpdateModal={handleOpenPriceUpdate}
-            onGoToMap={() => {
-              setActiveTab('map');
-            }}
-          />
+        {/* Dynamic Header (Sticky Top Layout - Mobile Only) */}
+        {activeTab !== 'detail' && (
+          <header className="md:hidden sticky top-0 w-full z-40 flex justify-between items-center px-4 h-16 bg-white border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2">
+              <Fuel className="w-6 h-6 text-blue-800" />
+              <h1 className="text-lg font-black tracking-tight text-blue-800 font-sans leading-none">
+                AbastecePMW
+              </h1>
+            </div>
+            <button 
+              onClick={() => setActiveTab('list')}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+              title="Buscar"
+            >
+              <Search className="w-5 h-5 text-gray-500" />
+            </button>
+          </header>
         )}
 
-        {activeTab === 'map' && (
-          <MapTab 
-            stations={stationsWithDynamicDistance}
-            selectedStation={selectedStationWithDynamicDistance}
-            onSelectStation={(s) => setSelectedStation(s)}
-            selectedFuel={selectedFuel}
-            setSelectedFuel={setSelectedFuel}
-            onOpenDetails={(s) => {
-              setSelectedStation(s);
-              setActiveTab('detail');
-            }}
-            userCoords={userCoords}
-            setUserCoords={setUserCoords}
-          />
-        )}
+        {/* Content Wrapper */}
+        <main className={`flex-1 ${activeTab === 'map' ? 'p-0 relative h-full' : 'p-4 md:p-6 lg:p-8'}`}>
+          
+          {/* Tab switcher renderer */}
+          {activeTab === 'list' && (
+            <div className="flex flex-col lg:flex-row gap-6 h-full items-stretch">
+              {/* Left Scrollable list column */}
+              <div className="flex-1 lg:max-w-[480px] xl:max-w-[540px] shrink-0">
+                <NearbyList 
+                  stations={stationsWithDynamicDistance}
+                  onSelectStation={handleSelectStation}
+                  selectedFuel={selectedFuel}
+                  setSelectedFuel={setSelectedFuel}
+                  onOpenUpdateModal={handleOpenPriceUpdate}
+                  onGoToMap={() => {
+                    setActiveTab('map');
+                  }}
+                />
+              </div>
 
-        {activeTab === 'history' && (
-          <HistoricTab 
-            history={history}
-            onVoteApproval={handleVoteApproval}
-          />
-        )}
+              {/* Right Interactive Map Preview column (Hidden on mobile/tablets, beautiful on desktop) */}
+              <div className="hidden lg:block flex-1 relative min-h-[500px] border border-gray-200 bg-white rounded-2xl overflow-hidden shadow-md">
+                <MapTab 
+                  stations={stationsWithDynamicDistance}
+                  selectedStation={selectedStationWithDynamicDistance}
+                  onSelectStation={(s) => setSelectedStation(s)}
+                  selectedFuel={selectedFuel}
+                  setSelectedFuel={setSelectedFuel}
+                  onOpenDetails={(s) => {
+                    setSelectedStation(s);
+                    setActiveTab('detail');
+                  }}
+                  userCoords={userCoords}
+                  setUserCoords={setUserCoords}
+                />
+              </div>
+            </div>
+          )}
 
-        {activeTab === 'profile' && (
-          <ProfileTab 
-            user={user}
-            stations={stationsWithDynamicDistance}
-            onSelectStation={handleSelectStation}
-            onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
-          />
-        )}
+          {activeTab === 'map' && (
+            <MapTab 
+              stations={stationsWithDynamicDistance}
+              selectedStation={selectedStationWithDynamicDistance}
+              onSelectStation={(s) => setSelectedStation(s)}
+              selectedFuel={selectedFuel}
+              setSelectedFuel={setSelectedFuel}
+              onOpenDetails={(s) => {
+                setSelectedStation(s);
+                setActiveTab('detail');
+              }}
+              userCoords={userCoords}
+              setUserCoords={setUserCoords}
+            />
+          )}
 
-        {activeTab === 'detail' && selectedStationWithDynamicDistance && (
-          <StationDetails 
-            station={selectedStationWithDynamicDistance}
-            selectedFuel={selectedFuel}
-            onBack={handleBackToMain}
-            onOpenPriceUpdate={() => handleOpenPriceUpdate(selectedStationWithDynamicDistance)}
-            onOpenNavigation={(s) => setNavigationStation(s)}
-            onAddComment={handleAddComment}
-            isDeveloper={user.email === 'quintilloalef@gmail.com'}
-          />
-        )}
+          {activeTab === 'history' && (
+            <div className="max-w-4xl mx-auto">
+              <HistoricTab 
+                history={history}
+                onVoteApproval={handleVoteApproval}
+              />
+            </div>
+          )}
 
-      </main>
+          {activeTab === 'profile' && (
+            <div className="max-w-4xl mx-auto">
+              <ProfileTab 
+                user={user}
+                stations={stationsWithDynamicDistance}
+                onSelectStation={handleSelectStation}
+                onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+              />
+            </div>
+          )}
+
+          {activeTab === 'detail' && selectedStationWithDynamicDistance && (
+            <div className="max-w-3xl mx-auto">
+              <StationDetails 
+                station={selectedStationWithDynamicDistance}
+                selectedFuel={selectedFuel}
+                onBack={handleBackToMain}
+                onOpenPriceUpdate={() => handleOpenPriceUpdate(selectedStationWithDynamicDistance)}
+                onOpenNavigation={(s) => setNavigationStation(s)}
+                onAddComment={handleAddComment}
+                isDeveloper={user.email === 'quintilloalef@gmail.com'}
+              />
+            </div>
+          )}
+
+        </main>
+      </div>
 
       {/* Floating Price Edit Modal layer */}
       {isUpdateModalOpen && stationToUpdate && (
@@ -433,8 +532,8 @@ export default function App() {
         />
       )}
 
-      {/* Persistent Bottom Tab Navigation Bar */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-5xl xl:max-w-6xl z-50 flex justify-around items-center bg-white h-16 border-t border-gray-200">
+      {/* Persistent Bottom Tab Navigation Bar - Hidden on desktop */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden flex justify-around items-center bg-white h-16 border-t border-gray-200 shadow-lg">
         
         {/* List trigger button */}
         <button 
@@ -443,11 +542,11 @@ export default function App() {
             setSelectedStation(null);
           }}
           className={`flex-1 flex flex-col items-center justify-center h-full transition-all cursor-pointer ${
-            activeTab === 'list' ? 'text-blue-800 font-bold scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
+            activeTab === 'list' ? 'text-blue-800 font-black scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
           }`}
         >
           <Fuel className="w-5 h-5 mb-0.5 shrink-0" />
-          <span className="text-[10px] tracking-wider uppercase font-mono">Próximos</span>
+          <span className="text-[9px] tracking-wider uppercase font-mono font-bold">Próximos</span>
         </button>
 
         {/* Map trigger button */}
@@ -456,11 +555,11 @@ export default function App() {
             setActiveTab('map');
           }}
           className={`flex-1 flex flex-col items-center justify-center h-full transition-all cursor-pointer ${
-            activeTab === 'map' ? 'text-blue-800 font-bold scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
+            activeTab === 'map' ? 'text-blue-800 font-black scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
           }`}
         >
           <Map className="w-5 h-5 mb-0.5 shrink-0" />
-          <span className="text-[10px] tracking-wider uppercase font-mono">Mapa</span>
+          <span className="text-[9px] tracking-wider uppercase font-mono font-bold">Mapa</span>
         </button>
 
         {/* History trigger button */}
@@ -470,11 +569,11 @@ export default function App() {
             setSelectedStation(null);
           }}
           className={`flex-1 flex flex-col items-center justify-center h-full transition-all cursor-pointer ${
-            activeTab === 'history' ? 'text-blue-800 font-bold scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
+            activeTab === 'history' ? 'text-blue-800 font-black scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
           }`}
         >
           <History className="w-5 h-5 mb-0.5 shrink-0" />
-          <span className="text-[10px] tracking-wider uppercase font-mono">Histórico</span>
+          <span className="text-[9px] tracking-wider uppercase font-mono font-bold">Histórico</span>
         </button>
 
         {/* Profile trigger button */}
@@ -484,11 +583,11 @@ export default function App() {
             setSelectedStation(null);
           }}
           className={`flex-1 flex flex-col items-center justify-center h-full transition-all cursor-pointer ${
-            activeTab === 'profile' ? 'text-blue-800 font-bold scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
+            activeTab === 'profile' ? 'text-blue-800 font-black scale-[1.03]' : 'text-gray-400 hover:text-gray-650'
           }`}
         >
           <User className="w-5 h-5 mb-0.5 shrink-0" />
-          <span className="text-[10px] tracking-wider uppercase font-mono">Perfil</span>
+          <span className="text-[9px] tracking-wider uppercase font-mono font-bold">Perfil</span>
         </button>
 
       </nav>
