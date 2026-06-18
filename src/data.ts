@@ -1,6 +1,7 @@
 import { GasStation, UserProfile, HistoryItem } from './types';
+import palmasRealMap from './assets/images/palmas_real_raster_map_updated_1781794788121.jpg';
 
-export const MAP_IMAGE_URL = 'https://lh3.googleusercontent.com/aida-public/AB6AXuD7F_Dx1O7swT4FGRKRQBiOEnUxNkKVhM0gCNyRjDu-MRI614q9ytna685kScPB9sROZBYgV-OOfPOMN8t8_jISd5WID6Y6SkMfBgr1wh3jMlGwZTAzREjMJ7QViaDLZIx5XHe7hRJhoaNWKnNA1AabrPRBQqpnMIIkb7fReD83rHywlIkxebAhGodGJabWLxTGLrwwWpT5NlE92BogVOH_j4krNmotJMwGuMmlfZ5DQ2pbZS2-l3-TAggzboJNWhd2zL3KZ6CIF1c';
+export const MAP_IMAGE_URL = palmasRealMap;
 export const MINIMAP_IMAGE_URL = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCmdqWLmYgDctuuYvghAJSgTgqLlvo9ODb0C8935i60ERbrmaBR8r5-Uw-BHq3VyVP4kCoBr4Te7kY5NHHBd4NsiOYDLZ4YQ3Pc2WAczq_Ghu6vFgJ4Ckv4MO2eMPzUENC11a3Vh4Pybpm2hYP7yYI_O5VRWMJknI0Ectqm8ATPIbmSNbfRg9pvWfHFkcutZ2-1FKtW6IBTe75A-6muE6fCPrXgfQ9S5nD9AlKg7fFQrT_skfsNOpSJq9ANRxOf499vfVubTvJakqk';
 export const HERO_COVER_URL = 'https://images.unsplash.com/photo-1527018601619-a508a2be00cd?q=80&w=600&auto=format&fit=crop';
 

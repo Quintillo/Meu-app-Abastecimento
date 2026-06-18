@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DEFAULT_STATIONS, DEFAULT_USER, DEFAULT_HISTORY } from './data';
 import { GasStation, FuelType, HistoryItem, UserProfile } from './types';
 import NearbyList from './components/NearbyList';
@@ -57,8 +57,69 @@ export default function App() {
   const [stationToUpdate, setStationToUpdate] = useState<GasStation | null>(null);
   const [navigationStation, setNavigationStation] = useState<GasStation | null>(null);
 
+  // Load live data from Cloud SQL database server on mount
+  useEffect(() => {
+    fetch('/api/stations')
+      .then(res => {
+        if (!res.ok) throw new Error("Server error");
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setStations((prev) => {
+            return prev.map(localStation => {
+              const serverMatch = data.find(s => s.name.toLowerCase() === localStation.name.toLowerCase() || s.id === localStation.id);
+              if (serverMatch) {
+                return {
+                  ...localStation,
+                  id: serverMatch.id,
+                  prices: {
+                    ...localStation.prices,
+                    ...serverMatch.prices
+                  }
+                };
+              }
+              return localStation;
+            });
+          });
+        }
+      })
+      .catch(err => console.warn("Using offline stations cache:", err));
+
+    fetch('/api/history')
+      .then(res => {
+        if (!res.ok) throw new Error("Server error");
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setHistory(data);
+        }
+      })
+      .catch(err => console.warn("Using offline history cache:", err));
+  }, []);
+
   // Helper inside history tab to approve/moderation items
   const handleVoteApproval = (historyId: string, status: 'APPROVED' | 'REJECTED') => {
+    const simulatedUser = {
+      uid: user.email === 'quintilloalef@gmail.com' ? 'admin' : 'simulated-user',
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl
+    };
+
+    fetch(`/api/history/${historyId}/vote`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Simulated-User": JSON.stringify(simulatedUser)
+      },
+      body: JSON.stringify({
+        type: status === 'APPROVED' ? 'upvote' : 'downvote'
+      })
+    })
+    .catch(err => console.error("Database voting synchronization error:", err));
+
     setHistory((prev) =>
       prev.map((item) => {
         if (item.id === historyId) {
@@ -153,6 +214,51 @@ export default function App() {
             }));
 
             setHistory((prevHistory) => [...newHistoryEntries, ...prevHistory]);
+
+            // Send background sync request to DB for each price update
+            const simulatedUser = {
+              uid: user.email === 'quintilloalef@gmail.com' ? 'admin' : 'simulated-user',
+              email: user.email,
+              name: user.name,
+              avatarUrl: user.avatarUrl
+            };
+
+            updates.forEach(up => {
+              const keyMap: Record<string, string> = {
+                'Gasolina Comum': 'Gasoline',
+                'G. Aditivada': 'GasolineAdit',
+                'Etanol': 'Ethanol',
+                'Diesel Comum': 'Diesel',
+                'Diesel S10': 'DieselS10'
+              };
+
+              const fuelKey = keyMap[up.type];
+              if (fuelKey) {
+                fetch(`/api/stations/${stationId}/report`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Simulated-User': JSON.stringify(simulatedUser)
+                  },
+                  body: JSON.stringify({
+                    fuelType: fuelKey,
+                    newPrice: up.new,
+                    oldPrice: up.old
+                  })
+                })
+                .then(res => res.json())
+                .then(() => {
+                  fetch('/api/history')
+                    .then(r => r.json())
+                    .then(data => {
+                      if (Array.isArray(data) && data.length > 0) {
+                        setHistory(data);
+                      }
+                    });
+                })
+                .catch(err => console.error("Database price report synchronization error:", err));
+              }
+            });
 
             // Award points
             setUser((prevUser) => ({

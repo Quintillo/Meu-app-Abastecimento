@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GasStation, FuelType, getSanitizedLogoUrl, getBrandLogoFallback } from '../types';
 import { MAP_IMAGE_URL } from '../data';
 import { 
@@ -99,34 +99,24 @@ export default function MapTab({
 
   const activeStation = selectedStation || mapStationsList[0] || stations[0];
 
-  // Boundaries for dynamic GPS projection based on Palmas coordinates
-  const lats = stations.map(s => s.latitude);
-  const lngs = stations.map(s => s.longitude);
-  const minLat = lats.length > 0 ? Math.min(...lats) : -10.35;
-  const maxLat = lats.length > 0 ? Math.max(...lats) : -10.15;
-  const minLng = lngs.length > 0 ? Math.min(...lngs) : -48.40;
-  const maxLng = lngs.length > 0 ? Math.max(...lngs) : -48.25;
+  // Boundaries calibrated for the Palmas screenshot raster map (100% matched with actual layout)
+  const MAP_LAT_NORTH = -10.122;
+  const MAP_LAT_SOUTH = -10.372;
+  const MAP_LNG_WEST = -48.428;
+  const MAP_LNG_EAST = -48.228;
 
   const getPercentageTop = (lat: number) => {
-    if (maxLat === minLat) return 50;
-    const fraction = (maxLat - lat) / (maxLat - minLat);
-    return 10 + fraction * 80; // project inside 10% to 90%
+    const totalDiff = MAP_LAT_NORTH - MAP_LAT_SOUTH;
+    const itemDiff = MAP_LAT_NORTH - lat;
+    const pct = (itemDiff / totalDiff) * 100;
+    return Math.max(0, Math.min(100, pct));
   };
 
   const getPercentageLeft = (lng: number) => {
-    if (maxLng === minLng) return 50;
-    const fraction = (lng - minLng) / (maxLng - minLng);
-    return 10 + fraction * 80; // project inside 10% to 90%
-  };
-
-  const getUserPercentageTop = (lat: number) => {
-    let pct = getPercentageTop(lat);
-    return Math.max(5, Math.min(95, pct));
-  };
-
-  const getUserPercentageLeft = (lng: number) => {
-    let pct = getPercentageLeft(lng);
-    return Math.max(5, Math.min(95, pct));
+    const totalDiff = MAP_LNG_EAST - MAP_LNG_WEST;
+    const itemDiff = lng - MAP_LNG_WEST;
+    const pct = (itemDiff / totalDiff) * 100;
+    return Math.max(0, Math.min(100, pct));
   };
 
   return (
@@ -185,19 +175,92 @@ export default function MapTab({
       )}
 
       {/* Main Map Box */}
-      <div className="relative w-full h-full bg-slate-200 overflow-hidden">
+      <div className="relative w-full h-full bg-slate-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
         
-        {/* Map Background Image */}
-        <img 
-          alt="Vista aérea de mapa de satélite" 
-          className="w-full h-full object-cover filter brightness-[0.93] contrast-[1.05]"
-          src={MAP_IMAGE_URL}
-          referrerPolicy="no-referrer"
-        />
+        {/* Map Wrapper with strict aspect ratio matching our boundaries */}
+        <div className="relative aspect-square w-full max-w-full max-h-full bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-200 shrink-0 select-none">
+          
+          {/* Map Image Layer */}
+          <img 
+            alt="Vista aérea de mapa de Palmas" 
+            className="w-full h-full object-fill filter brightness-[0.98] contrast-[1.01]"
+            src={MAP_IMAGE_URL}
+            referrerPolicy="no-referrer"
+          />
+
+          {/* User Pulsing Location Marker Pin */}
+          {userCoords && (
+            <div
+              style={{
+                top: `${getPercentageTop(userCoords.latitude)}%`,
+                left: `${getPercentageLeft(userCoords.longitude)}%`
+              }}
+              className="absolute z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-500"
+            >
+              <div className="relative flex h-8 w-8 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-4.5 w-4.5 bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white text-[10px] font-extrabold font-sans">
+                  ★
+                </span>
+                <div className="bg-blue-950 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-blue-400 absolute left-1/2 -translate-x-1/2 top-6.5 whitespace-nowrap">
+                  VOCÊ
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Gas Stations Pins */}
+          {mapStationsList.map((station) => {
+            const isSelected = activeStation && station.id === activeStation.id;
+            const isCheapest = cheapestStation && station.id === cheapestStation.id;
+            const fuelPrice = station.prices[selectedFuel];
+
+            // Determine pin background style
+            let pinBgColor = 'bg-blue-800 text-white border-white hover:bg-blue-900';
+            if (isCheapest) {
+              pinBgColor = 'bg-[#006c49] text-white border-white hover:bg-[#005137]';
+            }
+            if (isSelected) {
+              pinBgColor = 'bg-blue-900 text-white border-white ring-4 ring-blue-500/30 scale-110 font-bold';
+            }
+
+            return (
+              <button
+                key={station.id}
+                onClick={() => onSelectStation(station)}
+                style={{
+                  top: `${getPercentageTop(station.latitude)}%`,
+                  left: `${getPercentageLeft(station.longitude)}%`
+                }}
+                className="absolute z-20 -translate-x-1/2 -translate-y-full flex flex-col items-center select-none cursor-pointer group transition-all duration-150 active:scale-95 hover:z-30"
+              >
+                {/* Pin Head */}
+                <div className={`shadow-lg border-2 rounded-full font-bold font-sans flex items-center gap-1 leading-tight py-1 transition-all text-[11px] sm:text-xs ${
+                  isSelected ? 'px-3 py-1.5 scale-110 shadow-2xl z-30 font-black' : 'px-2.5'
+                } ${pinBgColor}`}>
+                  {isSelected && (
+                    <span className="w-1.5 h-1.5 bg-sky-200 rounded-full animate-ping inline-block shrink-0"></span>
+                  )}
+                  <span>R$ {fuelPrice.toFixed(2)}</span>
+                  {isCheapest && (
+                    <span className="bg-emerald-500 text-white text-[8px] rounded-full p-0.5 px-1 font-extrabold shrink-0" title="Mais Barato">
+                      ✓
+                    </span>
+                  )}
+                </div>
+
+                {/* Pin Pointer Tail */}
+                <div className={`w-0.5 h-2 -mt-0.5 shadow-xl transition-all ${
+                  isSelected ? 'h-2.5 w-1 bg-blue-900' : isCheapest ? 'bg-[#006c49]' : 'bg-blue-800'
+                }`}></div>
+              </button>
+            );
+          })}
+        </div>
 
         {/* Floating Geo Tracker Controller */}
-        <div className="absolute top-16 right-4 z-35 flex flex-col gap-2 pointer-events-auto">
-          <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-xl border border-gray-200/80 flex flex-col items-center gap-1.5 animate-in slide-in-from-right duration-250">
+        <div className="absolute top-4 right-4 z-35 flex flex-col gap-2 pointer-events-auto">
+          <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-xl border border-gray-250 flex flex-col items-center gap-1.5 animate-in slide-in-from-right duration-250">
             <button
               type="button"
               onClick={requestRealGPS}
@@ -242,82 +305,6 @@ export default function MapTab({
           </div>
         </div>
 
-        {/* User Pulsing Location Marker Pin */}
-        {userCoords && (
-          <div
-            style={{
-              top: `${getUserPercentageTop(userCoords.latitude)}%`,
-              left: `${getUserPercentageLeft(userCoords.longitude)}%`
-            }}
-            className="absolute z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-          >
-            <div className="relative flex h-8 w-8 items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-60"></span>
-              <span className="relative inline-flex rounded-full h-4.5 w-4.5 bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white text-[10px] font-extrabold font-sans">
-                ★
-              </span>
-            </div>
-            {/* Tiny "Você" tag */}
-            <div className="bg-blue-900/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-blue-400 absolute left-1/2 -translate-x-1/2 top-7 whitespace-nowrap">
-              VOCÊ
-            </div>
-          </div>
-        )}
-
-        {/* Map Interactive Pins Overlay */}
-        {mapStationsList.map((station) => {
-          const isSelected = activeStation && station.id === activeStation.id;
-          const isCheapest = cheapestStation && station.id === cheapestStation.id;
-
-          const fuelPrice = station.prices[selectedFuel];
-
-          // Determine style variant
-          let pinBgColor = 'bg-blue-800 text-white border-white';
-          if (isCheapest) {
-            pinBgColor = 'bg-[#006c49] text-white border-white';
-          }
-          if (isSelected) {
-            pinBgColor = 'bg-blue-900 text-white border-white ring-4 ring-blue-500/30';
-          }
-
-          return (
-            <button
-               key={station.id}
-               onClick={() => onSelectStation(station)}
-               style={{
-                 top: `${getPercentageTop(station.latitude)}%`,
-                 left: `${getPercentageLeft(station.longitude)}%`
-               }}
-               className="absolute z-20 -translate-x-1/2 -translate-y-full flex flex-col items-center select-none cursor-pointer group transition-transform hover:scale-108 active:scale-95 duration-200"
-            >
-              {/* Pin Head */}
-              <div className={`shadow-lg border-2 rounded-full font-bold font-sans flex items-center gap-1 leading-tight py-1.5 transition-all text-xs ${
-                isSelected ? 'px-4 py-2 text-sm border-white scale-110 shadow-2xl' : 'px-3'
-              } ${pinBgColor}`}>
-                
-                {isSelected && (
-                  <span className="w-2.5 h-2.5 bg-sky-200 rounded-full animate-ping inline-block shrink-0"></span>
-                )}
-                
-                <span>R$ {fuelPrice.toFixed(2)}</span>
-
-                {isCheapest && (
-                  <span className="bg-emerald-500 text-white text-[8px] rounded-full p-0.5" title="Mais Barato">
-                    ✓
-                  </span>
-                )}
-              </div>
-
-              {/* Pin Pointer Tail */}
-              <div className={`w-1 h-3 -mt-0.5 shadow-xl transition-all ${
-                isSelected ? 'h-4 w-1.5 bg-blue-900' : isCheapest ? 'bg-[#006c49]' : 'bg-blue-800'
-              }`}></div>
-              
-              {/* Optional dynamic shadow bulb */}
-              <div className="w-5 h-1.5 bg-black/25 rounded-full filter blur-xs -mt-1 opacity-70 group-hover:scale-110"></div>
-            </button>
-          );
-        })}
       </div>
 
       {/* Floating Gas Station Detail Card (Bottom Overlay) */}
